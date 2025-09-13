@@ -7,5 +7,5 @@ db.version(1).stores({
     candidates: "id, jobId, stage",
     notes: "id, candidateId",
     assessments: "jobId",
-    assessmentResponses: "id, [jobId+candidateId]"
+    assessmentResponses: "id"
 });
