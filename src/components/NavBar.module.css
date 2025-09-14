@@ -1,0 +1,87 @@
+.navbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.9rem 2.25rem;
+    background: #ffffff;
+    box-shadow: 0 2px 8px rgba(16, 24, 40, 0.05);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+    gap: 1rem;
+}
+
+.left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.logo {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: var(--dark);
+}
+
+.logoHighlight {
+    color: var(--primary);
+}
+
+.navLinks {
+    display: flex;
+    gap: 1.25rem;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+}
+
+.navLinks a {
+    color: var(--dark);
+    font-weight: 500;
+    transition: color 0.15s ease;
+}
+
+.navLinks a:hover {
+    color: var(--primary);
+}
+
+.cta {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.loginBtn {
+    padding: 0.45rem 0.9rem;
+    border-radius: 8px;
+    border: 1px solid var(--primary);
+    color: var(--primary);
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.signupBtn {
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    background: var(--primary);
+    color: white;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background 0.15s ease;
+}
+
+.signupBtn:hover {
+    background: #1d4ed8;
+}
+
+/* small screens */
+@media (max-width: 820px) {
+    .navLinks {
+        display: none;
+    }
+
+    .cta {
+        gap: 0.5rem;
+    }
+}

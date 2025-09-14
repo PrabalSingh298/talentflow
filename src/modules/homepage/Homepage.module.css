@@ -1,0 +1,60 @@
+.hero {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4rem 6rem;
+    background: linear-gradient(135deg, #f8fbff, #eaf4ff);
+}
+
+.heroText {
+    max-width: 50%;
+}
+
+.heroText h1 {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.heroText p {
+    font-size: 1.25rem;
+    color: var(--text-dark);
+    line-height: 1.6;
+}
+
+.heroImage {
+    width: 420px;
+    height: 420px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    overflow: hidden;
+}
+
+.carouselImage {
+    width: 100%;
+    height: auto;
+    animation: fadeInOut 1s ease-in-out;
+}
+
+@keyframes fadeInOut {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+.statsSection {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 2rem;
+    padding: 3rem 0;
+    background-color: #fdfdfd;
+}
