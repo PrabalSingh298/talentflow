@@ -1,6 +1,5 @@
 // src/store/jobsSlice.js
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import { db } from "../db";
 
 // Load jobs from the mock API
 export const loadJobs = createAsyncThunk("jobs/load", async (filters = {}) => {
@@ -83,6 +82,7 @@ const jobsSlice = createSlice({
         status: 'idle',
         currentPage: 1,
         pageSize: 10,
+        availableStatuses: ['active', 'archived', 'inactive'],
     },
     reducers: {
         optimisticReorder: (state, action) => {
@@ -110,27 +110,18 @@ const jobsSlice = createSlice({
                 state.currentPage = action.payload.page;
                 state.pageSize = action.payload.pageSize;
             })
-
-            // addJob
             .addCase(addJob.fulfilled, (state, action) => {
                 // For simplicity, re-fetch after add to update the list correctly.
-                // In a real app, you might optimistically add the item.
             })
-
-            // updateJob
             .addCase(updateJob.fulfilled, (state, action) => {
                 const index = state.list.findIndex((j) => j.id === action.payload.id);
                 if (index !== -1) {
                     state.list[index] = action.payload;
                 }
             })
-
-            // deleteJob
             .addCase(deleteJob.fulfilled, (state, action) => {
                 state.list = state.list.filter((job) => job.id !== action.payload);
             })
-
-            // reorderJob
             .addCase(reorderJob.fulfilled, (state, action) => {
                 state.status = 'succeeded';
                 state.list = action.payload.sort((a, b) => a.order - b.order);

@@ -3,7 +3,7 @@ import { http, HttpResponse, passthrough } from 'msw';
 import { db } from '../db';
 import { nanoid } from '@reduxjs/toolkit';
 
-const API_BASE = 'http://localhost:5173';
+const API_BASE = 'http://localhost:5173/api'; // Corrected API_BASE for simplicity
 
 const getNumericParam = (url, paramName, defaultValue) => {
     const value = url.searchParams.get(paramName);
@@ -20,15 +20,15 @@ const withError = () => {
 
 export const handlers = [
     // Passthrough handler for static assets
-    // This tells MSW to ignore all requests for files inside the /src/assets/ directory
     http.get('http://localhost:5173/src/assets/*', () => passthrough()),
 
     // GET /api/jobs
-    http.get(`${API_BASE}/api/jobs`, async ({ request }) => {
+    // Use a wildcard to ensure MSW intercepts all requests to /api/jobs
+    http.get(`${API_BASE}/jobs*`, async ({ request }) => {
         await delay(500);
 
         const url = new URL(request.url);
-        const title = url.searchParams.get('search');
+        const search = url.searchParams.get('search');
         const status = url.searchParams.get('status');
         const sort = url.searchParams.get('sort');
         const page = getNumericParam(url, 'page', 1);
@@ -36,23 +36,17 @@ export const handlers = [
 
         let jobs = await db.jobs.toArray();
 
-        // 1. Apply Filters
-        if (title) {
-            jobs = jobs.filter(job => job.title.toLowerCase().includes(title.toLowerCase()));
+        if (search) {
+            jobs = jobs.filter(job => job.title.toLowerCase().includes(search.toLowerCase()));
         }
         if (status) {
             jobs = jobs.filter(job => job.status === status);
         }
 
-        // 2. Apply Sorting
         if (sort === 'title') {
             jobs.sort((a, b) => a.title.localeCompare(b.title));
-        } else if (sort === 'date') {
-            // Assuming jobs have a 'createdAt' timestamp
-            // jobs.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
         }
 
-        // 3. Apply Pagination
         const startIndex = (page - 1) * pageSize;
         const paginatedJobs = jobs.slice(startIndex, startIndex + pageSize);
 
@@ -65,7 +59,7 @@ export const handlers = [
     }),
 
     // GET /api/jobs/:jobId
-    http.get(`${API_BASE}/api/jobs/:jobId`, async ({ params }) => {
+    http.get(`${API_BASE}/jobs/:jobId`, async ({ params }) => {
         await delay(500);
         const { jobId } = params;
         const job = await db.jobs.get(jobId);
@@ -76,7 +70,7 @@ export const handlers = [
     }),
 
     // POST /api/jobs
-    http.post(`${API_BASE}/api/jobs`, async ({ request }) => {
+    http.post(`${API_BASE}/jobs`, async ({ request }) => {
         await delay(700);
         if (withError()) {
             return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
@@ -87,7 +81,7 @@ export const handlers = [
     }),
 
     // PUT /api/jobs/:jobId
-    http.put(`${API_BASE}/api/jobs/:jobId`, async ({ request, params }) => {
+    http.put(`${API_BASE}/jobs/:jobId`, async ({ request, params }) => {
         await delay(700);
         if (withError()) {
             return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
@@ -98,8 +92,8 @@ export const handlers = [
         return HttpResponse.json(updatedJob);
     }),
 
-    // PATCH /api/jobs/reorder (Note: this is the old bulk reorder endpoint)
-    http.patch(`${API_BASE}/api/jobs/reorder`, async ({ request }) => {
+    // PATCH /api/jobs/reorder (old bulk reorder)
+    http.patch(`${API_BASE}/jobs/reorder`, async ({ request }) => {
         await delay(700);
         if (withError()) {
             return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
@@ -110,7 +104,7 @@ export const handlers = [
     }),
 
     // DELETE /api/jobs/:jobId
-    http.delete(`${API_BASE}/api/jobs/:jobId`, async ({ params }) => {
+    http.delete(`${API_BASE}/jobs/:jobId`, async ({ params }) => {
         await delay(700);
         if (withError()) {
             return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
@@ -120,28 +114,22 @@ export const handlers = [
         return new HttpResponse(null, { status: 200 });
     }),
 
-    // --- New PATCH endpoint for single job reorder ---
-    http.patch(`${API_BASE}/api/jobs/:jobId/reorder`, async ({ request, params }) => {
-        console.log("PATCH /api/jobs/:jobId/reorder handler called.");
+    // PATCH /api/jobs/:jobId/reorder (single job reorder)
+    http.patch(`${API_BASE}/jobs/:jobId/reorder`, async ({ request, params }) => {
         await delay(700);
-        // Simulate a random failure for rollback testing
         if (withError()) {
-            console.log("Reorder API call failed.");
             return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
         }
 
         const { jobId } = params;
         const { fromOrder, toOrder } = await request.json();
-
         let jobs = await db.jobs.toArray();
-
         const movedJob = jobs.find(j => j.id === jobId);
         if (!movedJob) {
             return new HttpResponse(null, { status: 404, statusText: 'Job not found' });
         }
 
         const direction = fromOrder < toOrder ? 'down' : 'up';
-
         if (direction === 'down') {
             jobs = jobs.map(j => {
                 if (j.order > fromOrder && j.order <= toOrder) {
@@ -157,7 +145,6 @@ export const handlers = [
                 return j;
             });
         }
-
         const finalJobs = jobs.map(j => {
             if (j.id === jobId) {
                 return { ...j, order: toOrder };
@@ -166,8 +153,6 @@ export const handlers = [
         });
 
         await db.jobs.bulkPut(finalJobs);
-
-        console.log("Reorder API call succeeded. Returning updated jobs list.");
         return HttpResponse.json(finalJobs);
     }),
 ];
