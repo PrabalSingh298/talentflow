@@ -3,7 +3,7 @@ import { http, HttpResponse, passthrough } from 'msw';
 import { db } from '../db';
 import { nanoid } from '@reduxjs/toolkit';
 
-const API_BASE = 'http://localhost:5173/api'; // Corrected API_BASE for simplicity
+const API_BASE = 'http://localhost:5173/api';
 
 const getNumericParam = (url, paramName, defaultValue) => {
     const value = url.searchParams.get(paramName);
@@ -23,7 +23,6 @@ export const handlers = [
     http.get('http://localhost:5173/src/assets/*', () => passthrough()),
 
     // GET /api/jobs
-    // Use a wildcard to ensure MSW intercepts all requests to /api/jobs
     http.get(`${API_BASE}/jobs*`, async ({ request }) => {
         await delay(500);
 
@@ -59,20 +58,13 @@ export const handlers = [
     }),
 
     // GET /api/jobs/:jobId
-    // GET /api/jobs/:jobId
-    http.get(`${API_BASE}/api/jobs/:jobId`, async ({ params }) => {
+    http.get(`${API_BASE}/jobs/:jobId`, async ({ params }) => {
         await delay(500);
-
         const { jobId } = params;
-        console.log(`Attempting to fetch job with ID: ${jobId}`); // Debugging log
-
         const job = await db.jobs.get(jobId);
-
         if (!job) {
-            console.log(`Job with ID ${jobId} not found.`);
             return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
         }
-
         return HttpResponse.json(job);
     }),
 
@@ -161,5 +153,82 @@ export const handlers = [
 
         await db.jobs.bulkPut(finalJobs);
         return HttpResponse.json(finalJobs);
+    }),
+
+    // GET /api/candidates
+    http.get(`${API_BASE}/candidates`, async ({ request }) => {
+        await delay(500);
+        const url = new URL(request.url);
+        const search = url.searchParams.get('search');
+        const stage = url.searchParams.get('stage');
+        let candidates = await db.candidates.toArray();
+
+        if (search) {
+            candidates = candidates.filter(c =>
+                c.name.toLowerCase().includes(search.toLowerCase()) ||
+                c.email.toLowerCase().includes(search.toLowerCase())
+            );
+        }
+        if (stage) {
+            candidates = candidates.filter(c => c.stage === stage);
+        }
+        return HttpResponse.json(candidates);
+    }),
+
+    // GET /api/candidates/:id
+    http.get(`${API_BASE}/candidates/:id`, async ({ params }) => {
+        await delay(500);
+        const candidate = await db.candidates.get(params.id);
+        if (!candidate) {
+            return new HttpResponse(null, { status: 404 });
+        }
+        return HttpResponse.json(candidate);
+    }),
+
+    // New: POST /api/candidates
+    http.post(`${API_BASE}/candidates`, async ({ request }) => {
+        await delay(700);
+        if (withError()) {
+            return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
+        }
+
+        const newCandidate = { ...await request.json(), id: `cand-${nanoid()}` };
+        await db.candidates.add(newCandidate);
+
+        return HttpResponse.json(newCandidate, { status: 201 });
+    }),
+
+    // PATCH /api/candidates/:id (for stage transitions)
+    http.patch(`${API_BASE}/candidates/:id`, async ({ request, params }) => {
+        await delay(700);
+        if (withError()) return new HttpResponse(null, { status: 500 });
+        const { id } = params;
+        const updates = await request.json();
+        await db.candidates.update(id, updates);
+        const updatedCandidate = await db.candidates.get(id);
+        return HttpResponse.json(updatedCandidate);
+    }),
+
+    // GET /api/candidates/:id/timeline
+    http.get(`${API_BASE}/candidates/:id/timeline`, async ({ params }) => {
+        await delay(500);
+        const candidate = await db.candidates.get(params.id);
+        if (!candidate) {
+            return new HttpResponse(null, { status: 404 });
+        }
+        return HttpResponse.json(candidate.timeline);
+    }),
+
+    // New: POST /api/notes
+    http.post(`${API_BASE}/notes`, async ({ request }) => {
+        await delay(700);
+        if (withError()) {
+            return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
+        }
+
+        const newNote = { ...await request.json(), id: `note-${nanoid()}` };
+        await db.notes.add(newNote);
+
+        return HttpResponse.json(newNote, { status: 201 });
     }),
 ];

@@ -27,6 +27,18 @@ const JOB_STATUSES = [
     "active", "archived", "inactive"
 ];
 
+// List of HR members for @mentions
+const HR_MEMBERS = ["Priya", "Raj", "Sarah", "Tom"];
+
+// Function to create a mock note
+const createNote = (candidateId, text) => ({
+    id: `note-${nanoid()}`,
+    candidateId,
+    text,
+    mentions: text.includes('@') ? text.split(' ').filter(word => word.startsWith('@')).map(mention => mention.substring(1)) : [],
+    createdAt: new Date().toISOString(),
+});
+
 const createJob = (index) => {
     const title = JOB_TITLES[Math.floor(Math.random() * JOB_TITLES.length)];
     const slug = title.toLowerCase().replace(/\s+/g, '-') + `-${index}`;
@@ -36,7 +48,6 @@ const createJob = (index) => {
         tags.add(JOB_TAGS[Math.floor(Math.random() * JOB_TAGS.length)]);
     }
 
-    // Correctly select a random status from the array
     const status = JOB_STATUSES[Math.floor(Math.random() * JOB_STATUSES.length)];
 
     return {
@@ -50,22 +61,35 @@ const createJob = (index) => {
     };
 };
 
+// Updated createCandidate function to not include notes
 const createCandidate = (index, jobId) => {
     const name = CANDIDATE_NAMES[Math.floor(Math.random() * CANDIDATE_NAMES.length)];
     const email = name.toLowerCase().replace(/\s/g, '.') + `@email.com`;
-    const stage = CANDIDATE_STAGES[Math.floor(Math.random() * CANDIDATE_STAGES.length)];
+    const candidateId = `cand-${nanoid()}`;
+
+    const availableStages = ["applied", "screen", "tech", "offer", "hired"];
+    const timelineLength = Math.floor(Math.random() * (availableStages.length)) + 1;
+
+    let timeline = [];
+    let currentTimestamp = Date.now() - (Math.floor(Math.random() * 1000000000));
+
+    for (let i = 0; i < timelineLength; i++) {
+        timeline.push({
+            stage: availableStages[i],
+            timestamp: new Date(currentTimestamp + (i * 100000000)).toISOString()
+        });
+    }
+
+    const finalStage = timeline[timeline.length - 1].stage;
 
     return {
-        id: `cand-${nanoid()}`,
+        id: candidateId,
         name: name,
         email: email,
-        stage: stage,
+        stage: finalStage,
         jobId: jobId,
-        notes: [],
-        timeline: [
-            { stage: "applied", timestamp: new Date().toISOString() },
-            { stage: stage, timestamp: new Date().toISOString() },
-        ]
+        // Removed notes from here
+        timeline: timeline
     };
 };
 
@@ -114,6 +138,15 @@ export const seedDatabase = async () => {
             });
             await db.candidates.bulkAdd(candidates);
             console.log('Successfully seeded with 1000 candidates!');
+
+            // New: Seed a few sample notes for a few candidates
+            const sampleCandidateIds = candidates.slice(0, 3).map(c => c.id);
+            const notes = sampleCandidateIds.flatMap(id => [
+                createNote(id, `Initial screening call went well. @Priya should review.`),
+                createNote(id, `Technical assessment scheduled for next week. Noted on the calendar.`),
+            ]);
+            await db.notes.bulkAdd(notes);
+            console.log('Successfully seeded with sample notes!');
 
             const assessments = jobIds.slice(0, 3).map((jobId, i) => createAssessment(jobId, i));
             await db.assessments.bulkAdd(assessments);

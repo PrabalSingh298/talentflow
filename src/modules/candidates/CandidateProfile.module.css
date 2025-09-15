@@ -1,0 +1,85 @@
+/* src/modules/candidates/CandidateProfile.module.css */
+.profileContainer {
+    padding: 2rem;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.backLink {
+    text-decoration: none;
+    color: #2563eb;
+    font-weight: 500;
+    display: block;
+    margin-bottom: 1.5rem;
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 2px solid #e2e8f0;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+}
+
+.name {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #1a202c;
+    margin: 0;
+}
+
+.stage {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #4a5568;
+}
+
+.stage span {
+    text-transform: capitalize;
+    color: #2563eb;
+}
+
+.email {
+    font-size: 1rem;
+    color: #4a5568;
+    margin-bottom: 2rem;
+}
+
+.timeline,
+.notes {
+    background-color: #f7f9fc;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.timeline h2,
+.notes h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin-top: 0;
+    margin-bottom: 1rem;
+}
+
+.timelineEvent {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.timelineEvent:last-child {
+    border-bottom: none;
+}
+
+.timelineStage {
+    text-transform: capitalize;
+    font-weight: 500;
+}
+
+.timelineDate {
+    font-size: 0.875rem;
+    color: #718096;
+}

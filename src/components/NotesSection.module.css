@@ -1,0 +1,62 @@
+/* src/components/NotesSection.module.css */
+.notesSection {
+    margin-bottom: 2rem;
+}
+
+.form {
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    margin-top: 1rem;
+}
+
+.textarea {
+    width: 100%;
+    padding: 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    min-height: 100px;
+    resize: vertical;
+    font-size: 1rem;
+}
+
+.suggestionsList {
+    position: absolute;
+    bottom: 60px;
+    /* Position above the button */
+    left: 0;
+    right: 0;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    z-index: 10;
+}
+
+.suggestionsList li {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid #e2e8f0;
+}
+
+.suggestionsList li:hover {
+    background-color: #f7f9fc;
+}
+
+.submitBtn {
+    margin-top: 1rem;
+    padding: 0.75rem 1.5rem;
+    background-color: #2563eb;
+    color: #ffffff;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.submitBtn:hover {
+    background-color: #1e40af;
+}

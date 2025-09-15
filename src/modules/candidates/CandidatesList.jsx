@@ -1,39 +1,56 @@
-import { useEffect } from "react";
-import { useSelector, useDispatch } from "react-redux";
-import { loadCandidates, addCandidate } from "../../store/candidatesSlice";
+// src/modules/candidates/CandidatesList.jsx
+import React, { useEffect, useState } from 'react'; // Add useState
+import { useDispatch, useSelector } from 'react-redux';
+import { useLocation } from 'react-router-dom';
+import { loadCandidates, updateCandidateStage } from '../../store/candidatesSlice';
+import CandidateKanban from './CandidateKanban';
+import CandidateFilter from '../../components/CandidateFilter';
+import CandidateFormModal from '../../components/CandidateFormModal'; // Import the new modal
+import { DragDropContext } from 'react-beautiful-dnd';
 
 function CandidatesList() {
     const dispatch = useDispatch();
-    const candidates = useSelector((state) => state.candidates.list);
+    const location = useLocation();
+    const { list: candidates, status } = useSelector(state => state.candidates);
+    const [isModalOpen, setIsModalOpen] = useState(false); // Add modal state
 
     useEffect(() => {
-        dispatch(loadCandidates());
-    }, [dispatch]);
-
-    const handleAddCandidate = () => {
-        const newCandidate = {
-            id: Date.now().toString(),
-            name: "Candidate " + Date.now(),
-            email: "cand" + Date.now() + "@example.com",
-            stage: "applied",
-            jobId: "job-1", // assume linked to a job
-            timeline: [],
+        const searchParams = new URLSearchParams(location.search);
+        const filters = {
+            search: searchParams.get('search'),
+            stage: searchParams.get('stage')
         };
-        dispatch(addCandidate(newCandidate));
+        dispatch(loadCandidates(filters));
+    }, [dispatch, location.search]);
+
+    const onDragEnd = (result) => {
+        const { destination, source, draggableId } = result;
+        if (!destination || destination.droppableId === source.droppableId) {
+            return;
+        }
+        dispatch(updateCandidateStage({ id: draggableId, stage: destination.droppableId }));
     };
+
+    if (status === 'loading') {
+        return <div>Loading candidates...</div>;
+    }
 
     return (
         <div>
-            <h2>Candidates List</h2>
-            <button onClick={handleAddCandidate}>Add Candidate</button>
-            <ul>
-                {candidates.map((cand) => (
-                    <li key={cand.id}>
-                        <strong>{cand.name}</strong> ({cand.email}) → Stage:{" "}
-                        {cand.stage}
-                    </li>
-                ))}
-            </ul>
+            <h1>Candidates Board</h1>
+            <button onClick={() => setIsModalOpen(true)}>Create Candidate</button>
+            <CandidateFilter />
+            {candidates.length === 0 ? (
+                <div>No candidates found.</div>
+            ) : (
+                <DragDropContext onDragEnd={onDragEnd}>
+                    <CandidateKanban candidates={candidates} />
+                </DragDropContext>
+            )}
+            <CandidateFormModal
+                isOpen={isModalOpen}
+                onClose={() => setIsModalOpen(false)}
+            />
         </div>
     );
 }

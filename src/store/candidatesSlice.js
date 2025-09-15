@@ -1,42 +1,68 @@
+// src/store/candidatesSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { db } from "../db";
 
-// Load candidates from IndexedDB
-export const loadCandidates = createAsyncThunk("candidates/load", async () => {
-    return await db.candidates.toArray();
+export const loadCandidates = createAsyncThunk("candidates/load", async (filters = {}) => {
+    const params = new URLSearchParams();
+    if (filters.search) params.append('search', filters.search);
+    if (filters.stage) params.append('stage', filters.stage);
+
+    const response = await fetch(`/api/candidates?${params.toString()}`);
+    if (!response.ok) {
+        throw new Error('Failed to load candidates');
+    }
+    return response.json();
 });
 
-// Add candidate
-export const addCandidate = createAsyncThunk(
-    "candidates/add",
-    async (candidate) => {
-        await db.candidates.add(candidate);
-        return candidate;
+export const updateCandidateStage = createAsyncThunk("candidates/updateStage", async ({ id, stage }, { rejectWithValue }) => {
+    const response = await fetch(`/api/candidates/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage }),
+    });
+    if (!response.ok) {
+        return rejectWithValue(await response.json());
+    }
+    return response.json();
+});
+
+export const loadCandidateById = createAsyncThunk("candidates/loadById", async (id) => {
+    const response = await fetch(`/api/candidates/${id}`);
+    if (!response.ok) {
+        throw new Error('Failed to load candidate');
+    }
+    return response.json();
+});
+
+export const loadTimelineByCandidateId = createAsyncThunk(
+    "candidates/loadTimeline",
+    async (candidateId) => {
+        const response = await fetch(`/api/candidates/${candidateId}/timeline`);
+        if (!response.ok) {
+            throw new Error('Failed to load timeline');
+        }
+        return response.json();
     }
 );
 
-// Update candidate (e.g., stage change, profile update)
-export const updateCandidate = createAsyncThunk(
-    "candidates/update",
-    async (candidate) => {
-        await db.candidates.put(candidate);
-        return candidate;
+// New: Async thunk to create a new candidate
+export const createCandidate = createAsyncThunk("candidates/create", async (candidate) => {
+    const response = await fetch('/api/candidates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(candidate),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to create candidate');
     }
-);
-
-// Delete candidate
-export const deleteCandidate = createAsyncThunk(
-    "candidates/delete",
-    async (id) => {
-        await db.candidates.delete(id);
-        return id;
-    }
-);
+    return response.json();
+});
 
 const candidatesSlice = createSlice({
     name: "candidates",
     initialState: {
         list: [],
+        currentCandidate: null,
+        currentTimeline: [], // New state property for the timeline
         status: "idle",
     },
     reducers: {},
@@ -49,21 +75,44 @@ const candidatesSlice = createSlice({
                 state.status = "succeeded";
                 state.list = action.payload;
             })
-            .addCase(addCandidate.fulfilled, (state, action) => {
-                state.list.push(action.payload);
-            })
-            .addCase(updateCandidate.fulfilled, (state, action) => {
-                const index = state.list.findIndex(
-                    (c) => c.id === action.payload.id
-                );
+            .addCase(updateCandidateStage.fulfilled, (state, action) => {
+                const index = state.list.findIndex(c => c.id === action.payload.id);
                 if (index !== -1) {
-                    state.list[index] = action.payload;
+                    state.list[index].stage = action.payload.stage;
+                    state.list[index].timeline.push({
+                        stage: action.payload.stage,
+                        timestamp: new Date().toISOString(),
+                    });
                 }
             })
-            .addCase(deleteCandidate.fulfilled, (state, action) => {
-                state.list = state.list.filter((c) => c.id !== action.payload);
+            .addCase(loadCandidateById.pending, (state) => {
+                state.status = 'loading';
+            })
+            .addCase(loadCandidateById.fulfilled, (state, action) => {
+                state.status = 'succeeded';
+                state.currentCandidate = action.payload;
+            })
+            .addCase(loadCandidateById.rejected, (state, action) => {
+                state.status = 'failed';
+                state.currentCandidate = null;
+            })
+            .addCase(loadTimelineByCandidateId.pending, (state) => {
+                state.status = 'loading';
+            })
+            .addCase(loadTimelineByCandidateId.fulfilled, (state, action) => {
+                state.status = 'succeeded';
+                state.currentTimeline = action.payload;
+            })
+            .addCase(loadTimelineByCandidateId.rejected, (state, action) => {
+                state.status = 'failed';
+                state.currentTimeline = [];
+            })
+            // New: Handle the creation of a new candidate
+            .addCase(createCandidate.fulfilled, (state, action) => {
+                state.list.push(action.payload);
             });
     },
 });
+
 
 export default candidatesSlice.reducer;

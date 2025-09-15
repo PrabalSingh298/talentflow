@@ -1,0 +1,29 @@
+/* src/components/CandidateCard.module.css */
+.card {
+    padding: 1rem;
+    margin-bottom: 0.75rem;
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+    transition: box-shadow 0.2s ease-in-out;
+    cursor: grab;
+}
+
+.card:hover {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.name {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #1a202c;
+    margin: 0;
+    margin-bottom: 0.25rem;
+}
+
+.email {
+    font-size: 0.875rem;
+    color: #718096;
+    margin: 0;
+}

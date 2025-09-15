@@ -1,3 +1,4 @@
+// src/store/notesSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { db } from "../db";
 
@@ -13,9 +14,16 @@ export const loadNotes = createAsyncThunk(
 export const addNote = createAsyncThunk(
     "notes/add",
     async (note) => {
-        // note = { id, candidateId, content, createdAt, mentions }
-        await db.notes.add(note);
-        return note;
+        // Corrected: Use a fetch call to the mock API
+        const response = await fetch('/api/notes', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(note),
+        });
+        if (!response.ok) {
+            throw new Error('Failed to add note');
+        }
+        return response.json();
     }
 );
 
@@ -67,5 +75,6 @@ const notesSlice = createSlice({
             });
     },
 });
+
 
 export default notesSlice.reducer;
