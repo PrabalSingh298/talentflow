@@ -5,6 +5,7 @@ import CandidatesList from "./modules/candidates/CandidatesList";
 import AssessmentBuilder from "./modules/assessments/AssessmentBuilder";
 import ResponseTest from "./modules/assessments/ResponseTest";
 import NotesTest from "./modules/candidates/NotesTest";
+import JobDetail from "./modules/jobs/JobDetail";
 import "./App.css";
 
 
@@ -14,6 +15,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<Homepage />} />
+        <Route path="/jobs/:jobId" element={<JobDetail />} />
         <Route path="/jobs" element={<JobsBoard />} />
         <Route path="/candidates" element={<CandidatesList />} />
         <Route path="/assessments/:jobId" element={<AssessmentBuilder jobId="job-1" />} />

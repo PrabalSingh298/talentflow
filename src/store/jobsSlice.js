@@ -74,10 +74,23 @@ export const reorderJob = createAsyncThunk(
     }
 );
 
+// New async thunk to load a single job by ID
+export const loadJobById = createAsyncThunk(
+    "jobs/loadById",
+    async (id) => {
+        const response = await fetch(`/api/jobs/${id}`);
+        if (!response.ok) {
+            throw new Error('Failed to load job');
+        }
+        return response.json();
+    }
+);
+
 const jobsSlice = createSlice({
     name: 'jobs',
     initialState: {
         list: [],
+        currentJob: null, // New state property for the single job
         totalCount: 0,
         status: 'idle',
         currentPage: 1,
@@ -110,24 +123,45 @@ const jobsSlice = createSlice({
                 state.currentPage = action.payload.page;
                 state.pageSize = action.payload.pageSize;
             })
+
+            // addJob
             .addCase(addJob.fulfilled, (state, action) => {
                 // For simplicity, re-fetch after add to update the list correctly.
             })
+
+            // updateJob
             .addCase(updateJob.fulfilled, (state, action) => {
                 const index = state.list.findIndex((j) => j.id === action.payload.id);
                 if (index !== -1) {
                     state.list[index] = action.payload;
                 }
             })
+
+            // deleteJob
             .addCase(deleteJob.fulfilled, (state, action) => {
                 state.list = state.list.filter((job) => job.id !== action.payload);
             })
+
+            // reorderJob
             .addCase(reorderJob.fulfilled, (state, action) => {
                 state.status = 'succeeded';
                 state.list = action.payload.sort((a, b) => a.order - b.order);
             })
             .addCase(reorderJob.rejected, (state, action) => {
                 state.status = 'failed';
+            })
+
+            // New: loadJobById
+            .addCase(loadJobById.pending, (state) => {
+                state.status = 'loading';
+            })
+            .addCase(loadJobById.fulfilled, (state, action) => {
+                state.status = 'succeeded';
+                state.currentJob = action.payload;
+            })
+            .addCase(loadJobById.rejected, (state, action) => {
+                state.status = 'failed';
+                state.currentJob = null;
             });
     },
 });

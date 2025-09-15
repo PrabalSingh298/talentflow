@@ -59,13 +59,20 @@ export const handlers = [
     }),
 
     // GET /api/jobs/:jobId
-    http.get(`${API_BASE}/jobs/:jobId`, async ({ params }) => {
+    // GET /api/jobs/:jobId
+    http.get(`${API_BASE}/api/jobs/:jobId`, async ({ params }) => {
         await delay(500);
+
         const { jobId } = params;
+        console.log(`Attempting to fetch job with ID: ${jobId}`); // Debugging log
+
         const job = await db.jobs.get(jobId);
+
         if (!job) {
+            console.log(`Job with ID ${jobId} not found.`);
             return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
         }
+
         return HttpResponse.json(job);
     }),
 

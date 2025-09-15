@@ -1,0 +1,66 @@
+/* src/components/JobsFilter.module.css */
+.filterContainer {
+    display: flex;
+    gap: 1.5rem;
+    padding: 1.5rem;
+    background-color: #f7f9fc;
+    border-radius: 8px;
+    margin-bottom: 2rem;
+    align-items: flex-end;
+}
+
+.formGroup {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.formGroup label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #4a5568;
+    margin-bottom: 0.5rem;
+}
+
+.formGroup input,
+.formGroup select {
+    padding: 0.75rem;
+    font-size: 1rem;
+    border: 1px solid #e2e8f0;
+    border-radius: 6px;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.applyBtn,
+.clearBtn {
+    padding: 0.75rem 1.25rem;
+    font-weight: 600;
+    border-radius: 6px;
+    cursor: pointer;
+    border: none;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.applyBtn {
+    background-color: #2563eb;
+    color: #ffffff;
+}
+
+.applyBtn:hover {
+    background-color: #1e40af;
+}
+
+.clearBtn {
+    background-color: #e5e7eb;
+    color: #4b5563;
+}
+
+.clearBtn:hover {
+    background-color: #d1d5db;
+}
