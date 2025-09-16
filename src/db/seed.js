@@ -88,36 +88,62 @@ const createCandidate = (index, jobId) => {
         email: email,
         stage: finalStage,
         jobId: jobId,
-        // Removed notes from here
         timeline: timeline
     };
 };
 
-const createAssessment = (jobId, index) => ({
-    jobId: jobId,
-    sections: [
-        {
+const ASSESSMENT_QUESTION_TYPES = [
+    'short-text', 'long-text', 'single-choice', 'multi-choice', 'numeric', 'file-upload'
+];
+const ASSESSMENT_OPTIONS = [
+    ['Yes', 'No'],
+    ['React', 'Vue', 'Angular', 'Svelte'],
+    ['Mobile', 'Web', 'Backend'],
+    ['Less than 1 year', '1-3 years', '3-5 years', '5+ years']
+];
+const ASSESSMENT_TEXTS = [
+    'Please describe your experience.',
+    'What is your favorite programming language?',
+    'How many years of experience do you have with [Skill]?',
+    'Which of the following frameworks are you proficient in?',
+    'Please upload your resume.'
+];
+
+const createAssessment = (jobId) => {
+    const questions = [];
+    const numQuestions = 10;
+
+    for (let i = 0; i < numQuestions; i++) {
+        const type = ASSESSMENT_QUESTION_TYPES[Math.floor(Math.random() * ASSESSMENT_QUESTION_TYPES.length)];
+        let question = {
             id: nanoid(),
-            title: `Section ${index + 1}: Technical`,
-            questions: [
-                {
-                    id: nanoid(),
-                    type: "single-choice",
-                    text: "What is your primary frontend framework?",
-                    options: ["React", "Vue", "Angular"],
-                    required: true
-                },
-                {
-                    id: nanoid(),
-                    type: "numeric",
-                    text: "Years of experience in React?",
-                    validation: { min: 0, max: 10 },
-                    required: true
-                }
-            ]
+            type: type,
+            text: ASSESSMENT_TEXTS[Math.floor(Math.random() * ASSESSMENT_TEXTS.length)],
+            required: Math.random() > 0.5,
+        };
+
+        if (type === 'single-choice' || type === 'multi-choice') {
+            question.options = ASSESSMENT_OPTIONS[Math.floor(Math.random() * ASSESSMENT_OPTIONS.length)];
         }
-    ]
-});
+
+        if (type === 'numeric') {
+            question.validation = { min: 0, max: 10 };
+        }
+
+        questions.push(question);
+    }
+
+    return {
+        jobId: jobId,
+        sections: [
+            {
+                id: nanoid(),
+                title: `Technical Assessment`,
+                questions: questions
+            }
+        ]
+    };
+};
 
 export const seedDatabase = async () => {
     console.log('Attempting to seed database...');
@@ -139,7 +165,11 @@ export const seedDatabase = async () => {
             await db.candidates.bulkAdd(candidates);
             console.log('Successfully seeded with 1000 candidates!');
 
-            // New: Seed a few sample notes for a few candidates
+            // Seed 3 assessments with 10 questions each
+            const assessments = jobIds.slice(0, 3).map((jobId) => createAssessment(jobId));
+            await db.assessments.bulkAdd(assessments);
+            console.log('Successfully seeded with 3 assessments!');
+
             const sampleCandidateIds = candidates.slice(0, 3).map(c => c.id);
             const notes = sampleCandidateIds.flatMap(id => [
                 createNote(id, `Initial screening call went well. @Priya should review.`),
@@ -148,9 +178,6 @@ export const seedDatabase = async () => {
             await db.notes.bulkAdd(notes);
             console.log('Successfully seeded with sample notes!');
 
-            const assessments = jobIds.slice(0, 3).map((jobId, i) => createAssessment(jobId, i));
-            await db.assessments.bulkAdd(assessments);
-            console.log('Successfully seeded with 3 assessments!');
         } else {
             console.log('Database already seeded. Skipping.');
         }
