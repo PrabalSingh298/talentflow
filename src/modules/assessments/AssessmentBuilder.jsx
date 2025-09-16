@@ -1,8 +1,8 @@
 // src/modules/assessments/AssessmentBuilder.jsx
 import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useParams, useNavigate } from 'react-router-dom';
-import { loadAssessment, saveAssessment } from '../../store/assessmentsSlice';
+import { useLocation } from 'react-router-dom';
+import { loadAssessment, saveNewAssessment, clearAssessment } from '../../store/assessmentsSlice';
 import AssessmentPreview from './AssessmentPreview';
 import ShortTextQuestion from '../../components/ShortTextQuestion';
 import LongTextQuestion from '../../components/LongTextQuestion';
@@ -11,31 +11,45 @@ import MultiChoiceQuestion from '../../components/MultiChoiceQuestion';
 import NumericQuestion from '../../components/NumericQuestion';
 import FileUploadQuestion from '../../components/FileUploadQuestion';
 import RequiredCheckbox from '../../components/RequiredCheckbox';
-import ConditionalLogic from '../../components/ConditionalLogic'; // Import the new component
+import ConditionalLogic from '../../components/ConditionalLogic';
 import styles from './AssessmentBuilder.module.css';
+import { nanoid } from '@reduxjs/toolkit';
 
 const AssessmentBuilder = () => {
-    const { jobId } = useParams();
+    const location = useLocation();
+    const jobIdFromUrl = new URLSearchParams(location.search).get('jobId');
+
     const dispatch = useDispatch();
-    const navigate = useNavigate();
 
     const assessment = useSelector(state => state.assessments.current);
     const status = useSelector(state => state.assessments.status);
 
-    const [assessmentData, setAssessmentData] = useState(assessment || { jobId, sections: [] });
+    const [localAssessment, setLocalAssessment] = useState(null);
+    const [linkedJobId, setLinkedJobId] = useState(jobIdFromUrl || null);
 
     useEffect(() => {
-        dispatch(loadAssessment(jobId));
-    }, [dispatch, jobId]);
-
-    useEffect(() => {
-        if (assessment && assessment.jobId === jobId) {
-            setAssessmentData(assessment);
+        if (jobIdFromUrl) {
+            dispatch(loadAssessment(jobIdFromUrl));
+        } else {
+            dispatch(clearAssessment());
         }
-    }, [assessment, jobId]);
+
+        return () => {
+            dispatch(clearAssessment());
+        };
+    }, [dispatch, jobIdFromUrl]);
+
+    useEffect(() => {
+        if (assessment && assessment.jobId === jobIdFromUrl) {
+            setLocalAssessment(assessment);
+        } else if (!jobIdFromUrl) {
+            setLocalAssessment({ jobId: `job-${nanoid()}`, sections: [] });
+        }
+    }, [assessment, jobIdFromUrl]);
 
     const handleAddSection = () => {
-        setAssessmentData(prev => ({
+        if (!localAssessment) return;
+        setLocalAssessment(prev => ({
             ...prev,
             sections: [
                 ...prev.sections,
@@ -45,7 +59,8 @@ const AssessmentBuilder = () => {
     };
 
     const handleAddQuestion = (sectionIndex, type) => {
-        const newSections = [...assessmentData.sections];
+        if (!localAssessment) return;
+        const newSections = [...localAssessment.sections];
         let newQuestion = { id: `question-${Date.now()}`, type, text: '', required: false };
         if (type === 'single-choice' || type === 'multi-choice') {
             newQuestion.options = [''];
@@ -54,40 +69,51 @@ const AssessmentBuilder = () => {
             newQuestion.validation = { min: 0, max: 100 };
         }
         newSections[sectionIndex].questions.push(newQuestion);
-        setAssessmentData({ ...assessmentData, sections: newSections });
+        setLocalAssessment({ ...localAssessment, sections: newSections });
     };
 
     const handleUpdateQuestion = (sectionIndex, questionIndex, updatedQuestion) => {
-        const newSections = [...assessmentData.sections];
+        if (!localAssessment) return;
+        const newSections = [...localAssessment.sections];
         newSections[sectionIndex].questions[questionIndex] = updatedQuestion;
-        setAssessmentData({ ...assessmentData, sections: newSections });
+        setLocalAssessment({ ...localAssessment, sections: newSections });
     };
 
     const handleDeleteQuestion = (sectionIndex, questionIndex) => {
-        const newSections = [...assessmentData.sections];
+        if (!localAssessment) return;
+        const newSections = [...localAssessment.sections];
         newSections[sectionIndex].questions.splice(questionIndex, 1);
-        setAssessmentData({ ...assessmentData, sections: newSections });
+        setLocalAssessment({ ...localAssessment, sections: newSections });
     };
 
     const handleToggleRequired = (sectionIndex, questionIndex) => {
-        const newSections = [...assessmentData.sections];
+        if (!localAssessment) return;
+        const newSections = [...localAssessment.sections];
         const question = newSections[sectionIndex].questions[questionIndex];
         newSections[sectionIndex].questions[questionIndex] = {
             ...question,
             required: !question.required,
         };
-        setAssessmentData({ ...assessmentData, sections: newSections });
+        setLocalAssessment({ ...localAssessment, sections: newSections });
     };
 
     const handleSave = () => {
-        dispatch(saveAssessment(assessmentData));
+        if (!localAssessment || !localAssessment.jobId) {
+            alert('A job ID is required to save an assessment.');
+            return;
+        }
+        dispatch(saveNewAssessment(localAssessment));
         alert('Assessment saved!');
     };
 
-    const allQuestions = assessmentData.sections.flatMap(s => s.questions);
+    const allQuestions = localAssessment?.sections?.flatMap(s => s.questions) || [];
 
     if (status === 'loading') {
         return <div>Loading assessment...</div>;
+    }
+
+    if (!localAssessment) {
+        return null;
     }
 
     return (
@@ -96,12 +122,12 @@ const AssessmentBuilder = () => {
                 <h1>Assessment Builder</h1>
                 <button onClick={handleAddSection}>Add Section</button>
                 <div className={styles.sectionsList}>
-                    {assessmentData.sections.map((section, sectionIndex) => (
+                    {localAssessment.sections.map((section, sectionIndex) => (
                         <div key={section.id} className={styles.section}>
                             <input type="text" placeholder="Section Title" value={section.title} onChange={e => {
-                                const newSections = [...assessmentData.sections];
+                                const newSections = [...localAssessment.sections];
                                 newSections[sectionIndex].title = e.target.value;
-                                setAssessmentData({ ...assessmentData, sections: newSections });
+                                setLocalAssessment({ ...localAssessment, sections: newSections });
                             }} />
                             <div>
                                 <button onClick={() => handleAddQuestion(sectionIndex, 'short-text')}>Add Short Text Question</button>
@@ -113,7 +139,6 @@ const AssessmentBuilder = () => {
                             </div>
                             {section.questions.map((question, questionIndex) => {
                                 const commonProps = {
-                                    key: question.id,
                                     question: question,
                                     onUpdate: updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion),
                                     onDelete: () => handleDeleteQuestion(sectionIndex, questionIndex),
@@ -223,7 +248,7 @@ const AssessmentBuilder = () => {
             </div>
             <div className={styles.previewPane}>
                 <h2>Live Preview</h2>
-                <AssessmentPreview assessmentData={assessmentData} />
+                <AssessmentPreview assessmentData={localAssessment} />
             </div>
         </div>
     );

@@ -23,6 +23,15 @@ export const handlers = [
     http.get('http://localhost:5173/src/assets/*', () => passthrough()),
 
     // --- Assessments Handlers (Specific routes first) ---
+    // New: POST /api/assessments (to create a new one)
+    http.post(`${API_BASE}/assessments`, async ({ request }) => {
+        await delay(700);
+        if (withError()) return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
+        const assessment = await request.json();
+        await db.assessments.add(assessment);
+        return HttpResponse.json(assessment, { status: 201 });
+    }),
+
     // POST /api/assessments/:jobId/submit
     http.post(`${API_BASE}/assessments/:jobId/submit`, async ({ request, params }) => {
         await delay(700);
@@ -254,38 +263,4 @@ export const handlers = [
         await db.notes.add(newNote);
         return HttpResponse.json(newNote, { status: 201 });
     }),
-
-    // --- Assessments Handlers ---
-    // GET /api/assessments/:jobId
-    http.get(`${API_BASE}/assessments/:jobId`, async ({ params }) => {
-        await delay(500);
-        const { jobId } = params;
-        const assessment = await db.assessments.get(jobId);
-        if (!assessment) {
-            return new HttpResponse(null, { status: 404 });
-        }
-        return HttpResponse.json(assessment);
-    }),
-
-    // PUT /api/assessments/:jobId
-    http.put(`${API_BASE}/assessments/:jobId`, async ({ request, params }) => {
-        await delay(700);
-        if (withError()) return new HttpResponse(null, { status: 500 });
-        const { jobId } = params;
-        const assessment = await request.json();
-        await db.assessments.put(assessment);
-        return HttpResponse.json(assessment);
-    }),
-
-    // POST /api/assessments/:jobId/submit
-    http.post(`${API_BASE}/assessments/:jobId/submit`, async ({ request, params }) => {
-        await delay(700);
-        if (withError()) return new HttpResponse(null, { status: 500 });
-        const { jobId } = params;
-        const responseData = await request.json();
-        const fullResponse = { ...responseData, id: `response-${nanoid()}`, jobId };
-        await db.assessmentResponses.add(fullResponse);
-        return HttpResponse.json(fullResponse, { status: 201 });
-    }),
 ];
-

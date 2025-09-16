@@ -1,3 +1,4 @@
+// src/components/NavBar.jsx
 import React from "react";
 import { Link } from "react-router-dom";
 import styles from "./NavBar.module.css";
@@ -15,7 +16,7 @@ const NavBar = () => {
                 <li><Link to="/">Home</Link></li>
                 <li><Link to="/jobs">Jobs</Link></li>
                 <li><Link to="/candidates">Candidates</Link></li>
-                <li><Link to="/assessments/job-1">Assessments</Link></li>
+                <li><Link to="/assessments">Assessments</Link></li>
             </ul>
 
             <div className={styles.cta}>
