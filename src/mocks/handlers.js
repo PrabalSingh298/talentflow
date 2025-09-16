@@ -22,39 +22,79 @@ export const handlers = [
     // Passthrough handler for static assets
     http.get('http://localhost:5173/src/assets/*', () => passthrough()),
 
-    // GET /api/jobs
-    http.get(`${API_BASE}/jobs*`, async ({ request }) => {
+    // --- Assessments Handlers (Specific routes first) ---
+    // POST /api/assessments/:jobId/submit
+    http.post(`${API_BASE}/assessments/:jobId/submit`, async ({ request, params }) => {
+        await delay(700);
+        if (withError()) return new HttpResponse(null, { status: 500 });
+        const { jobId } = params;
+        const responseData = await request.json();
+        const fullResponse = { ...responseData, id: `response-${nanoid()}`, jobId };
+        await db.assessmentResponses.add(fullResponse);
+        return HttpResponse.json(fullResponse, { status: 201 });
+    }),
+
+    // GET /api/assessments/:jobId
+    http.get(`${API_BASE}/assessments/:jobId`, async ({ params }) => {
         await delay(500);
+        const { jobId } = params;
+        const assessment = await db.assessments.get(jobId);
+        if (!assessment) {
+            return new HttpResponse(null, { status: 404 });
+        }
+        return HttpResponse.json(assessment);
+    }),
 
-        const url = new URL(request.url);
-        const search = url.searchParams.get('search');
-        const status = url.searchParams.get('status');
-        const sort = url.searchParams.get('sort');
-        const page = getNumericParam(url, 'page', 1);
-        const pageSize = getNumericParam(url, 'pageSize', 10);
+    // PUT /api/assessments/:jobId
+    http.put(`${API_BASE}/assessments/:jobId`, async ({ request, params }) => {
+        await delay(700);
+        if (withError()) return new HttpResponse(null, { status: 500 });
+        const { jobId } = params;
+        const assessment = await request.json();
+        await db.assessments.put(assessment);
+        return HttpResponse.json(assessment);
+    }),
 
+    // --- Jobs Handlers ---
+    // PATCH /api/jobs/:jobId/reorder
+    http.patch(`${API_BASE}/jobs/:jobId/reorder`, async ({ request, params }) => {
+        await delay(700);
+        if (withError()) {
+            return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
+        }
+
+        const { jobId } = params;
+        const { fromOrder, toOrder } = await request.json();
         let jobs = await db.jobs.toArray();
-
-        if (search) {
-            jobs = jobs.filter(job => job.title.toLowerCase().includes(search.toLowerCase()));
-        }
-        if (status) {
-            jobs = jobs.filter(job => job.status === status);
+        const movedJob = jobs.find(j => j.id === jobId);
+        if (!movedJob) {
+            return new HttpResponse(null, { status: 404, statusText: 'Job not found' });
         }
 
-        if (sort === 'title') {
-            jobs.sort((a, b) => a.title.localeCompare(b.title));
+        const direction = fromOrder < toOrder ? 'down' : 'up';
+        if (direction === 'down') {
+            jobs = jobs.map(j => {
+                if (j.order > fromOrder && j.order <= toOrder) {
+                    return { ...j, order: j.order - 1 };
+                }
+                return j;
+            });
+        } else {
+            jobs = jobs.map(j => {
+                if (j.order < fromOrder && j.order >= toOrder) {
+                    return { ...j, order: j.order + 1 };
+                }
+                return j;
+            });
         }
-
-        const startIndex = (page - 1) * pageSize;
-        const paginatedJobs = jobs.slice(startIndex, startIndex + pageSize);
-
-        return HttpResponse.json({
-            data: paginatedJobs,
-            totalCount: jobs.length,
-            page,
-            pageSize
+        const finalJobs = jobs.map(j => {
+            if (j.id === jobId) {
+                return { ...j, order: toOrder };
+            }
+            return j;
         });
+        await db.jobs.bulkPut(finalJobs);
+        return HttpResponse.json(finalJobs);
     }),
 
     // GET /api/jobs/:jobId
@@ -66,6 +106,35 @@ export const handlers = [
             return new HttpResponse(null, { status: 404, statusText: 'Not Found' });
         }
         return HttpResponse.json(job);
+    }),
+
+    // GET /api/jobs
+    http.get(`${API_BASE}/jobs*`, async ({ request }) => {
+        await delay(500);
+        const url = new URL(request.url);
+        const search = url.searchParams.get('search');
+        const status = url.searchParams.get('status');
+        const sort = url.searchParams.get('sort');
+        const page = getNumericParam(url, 'page', 1);
+        const pageSize = getNumericParam(url, 'pageSize', 10);
+        let jobs = await db.jobs.toArray();
+        if (search) {
+            jobs = jobs.filter(job => job.title.toLowerCase().includes(search.toLowerCase()));
+        }
+        if (status) {
+            jobs = jobs.filter(job => job.status === status);
+        }
+        if (sort === 'title') {
+            jobs.sort((a, b) => a.title.localeCompare(b.title));
+        }
+        const startIndex = (page - 1) * pageSize;
+        const paginatedJobs = jobs.slice(startIndex, startIndex + pageSize);
+        return HttpResponse.json({
+            data: paginatedJobs,
+            totalCount: jobs.length,
+            page,
+            pageSize
+        });
     }),
 
     // POST /api/jobs
@@ -113,66 +182,15 @@ export const handlers = [
         return new HttpResponse(null, { status: 200 });
     }),
 
-    // PATCH /api/jobs/:jobId/reorder (single job reorder)
-    http.patch(`${API_BASE}/jobs/:jobId/reorder`, async ({ request, params }) => {
-        await delay(700);
-        if (withError()) {
-            return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
-        }
-
-        const { jobId } = params;
-        const { fromOrder, toOrder } = await request.json();
-        let jobs = await db.jobs.toArray();
-        const movedJob = jobs.find(j => j.id === jobId);
-        if (!movedJob) {
-            return new HttpResponse(null, { status: 404, statusText: 'Job not found' });
-        }
-
-        const direction = fromOrder < toOrder ? 'down' : 'up';
-        if (direction === 'down') {
-            jobs = jobs.map(j => {
-                if (j.order > fromOrder && j.order <= toOrder) {
-                    return { ...j, order: j.order - 1 };
-                }
-                return j;
-            });
-        } else {
-            jobs = jobs.map(j => {
-                if (j.order < fromOrder && j.order >= toOrder) {
-                    return { ...j, order: j.order + 1 };
-                }
-                return j;
-            });
-        }
-        const finalJobs = jobs.map(j => {
-            if (j.id === jobId) {
-                return { ...j, order: toOrder };
-            }
-            return j;
-        });
-
-        await db.jobs.bulkPut(finalJobs);
-        return HttpResponse.json(finalJobs);
-    }),
-
-    // GET /api/candidates
-    http.get(`${API_BASE}/candidates`, async ({ request }) => {
+    // --- Candidates Handlers ---
+    // GET /api/candidates/:id/timeline
+    http.get(`${API_BASE}/candidates/:id/timeline`, async ({ params }) => {
         await delay(500);
-        const url = new URL(request.url);
-        const search = url.searchParams.get('search');
-        const stage = url.searchParams.get('stage');
-        let candidates = await db.candidates.toArray();
-
-        if (search) {
-            candidates = candidates.filter(c =>
-                c.name.toLowerCase().includes(search.toLowerCase()) ||
-                c.email.toLowerCase().includes(search.toLowerCase())
-            );
+        const candidate = await db.candidates.get(params.id);
+        if (!candidate) {
+            return new HttpResponse(null, { status: 404 });
         }
-        if (stage) {
-            candidates = candidates.filter(c => c.stage === stage);
-        }
-        return HttpResponse.json(candidates);
+        return HttpResponse.json(candidate.timeline);
     }),
 
     // GET /api/candidates/:id
@@ -185,50 +203,89 @@ export const handlers = [
         return HttpResponse.json(candidate);
     }),
 
-    // New: POST /api/candidates
-    http.post(`${API_BASE}/candidates`, async ({ request }) => {
-        await delay(700);
-        if (withError()) {
-            return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
-        }
-
-        const newCandidate = { ...await request.json(), id: `cand-${nanoid()}` };
-        await db.candidates.add(newCandidate);
-
-        return HttpResponse.json(newCandidate, { status: 201 });
-    }),
-
-    // PATCH /api/candidates/:id (for stage transitions)
+    // PATCH /api/candidates/:id
     http.patch(`${API_BASE}/candidates/:id`, async ({ request, params }) => {
         await delay(700);
         if (withError()) return new HttpResponse(null, { status: 500 });
         const { id } = params;
         const updates = await request.json();
-        await db.candidates.update(id, updates);
+        const candidate = await db.candidates.get(id);
+        const updatedTimeline = [...candidate.timeline, { stage: updates.stage, timestamp: new Date().toISOString() }];
+        await db.candidates.update(id, { ...updates, timeline: updatedTimeline });
         const updatedCandidate = await db.candidates.get(id);
         return HttpResponse.json(updatedCandidate);
     }),
 
-    // GET /api/candidates/:id/timeline
-    http.get(`${API_BASE}/candidates/:id/timeline`, async ({ params }) => {
+    // GET /api/candidates
+    http.get(`${API_BASE}/candidates*`, async ({ request }) => {
         await delay(500);
-        const candidate = await db.candidates.get(params.id);
-        if (!candidate) {
-            return new HttpResponse(null, { status: 404 });
+        const url = new URL(request.url);
+        const search = url.searchParams.get('search');
+        const stage = url.searchParams.get('stage');
+        let candidates = await db.candidates.toArray();
+        if (search) {
+            candidates = candidates.filter(c =>
+                c.name.toLowerCase().includes(search.toLowerCase()) ||
+                c.email.toLowerCase().includes(search.toLowerCase())
+            );
         }
-        return HttpResponse.json(candidate.timeline);
+        if (stage) {
+            candidates = candidates.filter(c => c.stage === stage);
+        }
+        return HttpResponse.json(candidates);
     }),
 
-    // New: POST /api/notes
+    // POST /api/candidates
+    http.post(`${API_BASE}/candidates`, async ({ request }) => {
+        await delay(700);
+        if (withError()) return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
+        const newCandidate = { ...await request.json(), id: `cand-${nanoid()}` };
+        await db.candidates.add(newCandidate);
+        return HttpResponse.json(newCandidate, { status: 201 });
+    }),
+
+    // POST /api/notes
     http.post(`${API_BASE}/notes`, async ({ request }) => {
         await delay(700);
         if (withError()) {
             return new HttpResponse(null, { status: 500, statusText: 'Internal Server Error' });
         }
-
         const newNote = { ...await request.json(), id: `note-${nanoid()}` };
         await db.notes.add(newNote);
-
         return HttpResponse.json(newNote, { status: 201 });
     }),
+
+    // --- Assessments Handlers ---
+    // GET /api/assessments/:jobId
+    http.get(`${API_BASE}/assessments/:jobId`, async ({ params }) => {
+        await delay(500);
+        const { jobId } = params;
+        const assessment = await db.assessments.get(jobId);
+        if (!assessment) {
+            return new HttpResponse(null, { status: 404 });
+        }
+        return HttpResponse.json(assessment);
+    }),
+
+    // PUT /api/assessments/:jobId
+    http.put(`${API_BASE}/assessments/:jobId`, async ({ request, params }) => {
+        await delay(700);
+        if (withError()) return new HttpResponse(null, { status: 500 });
+        const { jobId } = params;
+        const assessment = await request.json();
+        await db.assessments.put(assessment);
+        return HttpResponse.json(assessment);
+    }),
+
+    // POST /api/assessments/:jobId/submit
+    http.post(`${API_BASE}/assessments/:jobId/submit`, async ({ request, params }) => {
+        await delay(700);
+        if (withError()) return new HttpResponse(null, { status: 500 });
+        const { jobId } = params;
+        const responseData = await request.json();
+        const fullResponse = { ...responseData, id: `response-${nanoid()}`, jobId };
+        await db.assessmentResponses.add(fullResponse);
+        return HttpResponse.json(fullResponse, { status: 201 });
+    }),
 ];
+

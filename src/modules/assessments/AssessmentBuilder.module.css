@@ -1,0 +1,43 @@
+/* src/modules/assessments/AssessmentBuilder.module.css */
+.container {
+    display: flex;
+    height: 100vh;
+    font-family: sans-serif;
+}
+
+.builderPane {
+    flex: 1;
+    padding: 2rem;
+    background-color: #f0f2f5;
+    overflow-y: auto;
+}
+
+.previewPane {
+    flex: 1;
+    padding: 2rem;
+    background-color: #ffffff;
+    border-left: 1px solid #e0e0e0;
+    overflow-y: auto;
+}
+
+h1,
+h2 {
+    color: #333;
+}
+
+button {
+    padding: 0.5rem 1rem;
+    margin: 0.5rem 0;
+    cursor: pointer;
+}
+
+.sectionsList {
+    margin-top: 1rem;
+}
+
+.section {
+    border: 1px solid #ccc;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border-radius: 8px;
+}

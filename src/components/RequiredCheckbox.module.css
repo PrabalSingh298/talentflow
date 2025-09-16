@@ -1,0 +1,21 @@
+/* src/components/RequiredCheckbox.module.css */
+.container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.label {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #4a5568;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.checkbox {
+    width: 16px;
+    height: 16px;
+}

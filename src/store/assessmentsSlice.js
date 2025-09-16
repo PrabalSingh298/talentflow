@@ -1,36 +1,30 @@
+// src/store/assessmentsSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
-import { db } from "../db";
 
-// Load assessments by jobId
-export const loadAssessment = createAsyncThunk(
-    "assessments/load",
-    async (jobId) => {
-        return await db.assessments.get(jobId); // one assessment per job
+export const loadAssessment = createAsyncThunk("assessments/load", async (jobId) => {
+    const response = await fetch(`/api/assessments/${jobId}`);
+    if (!response.ok) {
+        throw new Error('Failed to load assessment');
     }
-);
+    return response.json();
+});
 
-// Add or update assessment
-export const saveAssessment = createAsyncThunk(
-    "assessments/save",
-    async (assessment) => {
-        await db.assessments.put(assessment); // put = add or update
-        return assessment;
+export const saveAssessment = createAsyncThunk("assessments/save", async (assessment) => {
+    const response = await fetch(`/api/assessments/${assessment.jobId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(assessment),
+    });
+    if (!response.ok) {
+        throw new Error('Failed to save assessment');
     }
-);
-
-// Delete assessment
-export const deleteAssessment = createAsyncThunk(
-    "assessments/delete",
-    async (jobId) => {
-        await db.assessments.delete(jobId);
-        return jobId;
-    }
-);
+    return response.json();
+});
 
 const assessmentsSlice = createSlice({
     name: "assessments",
     initialState: {
-        current: null, // assessment for the selected job
+        current: null,
         status: "idle",
     },
     reducers: {},
@@ -41,17 +35,13 @@ const assessmentsSlice = createSlice({
             })
             .addCase(loadAssessment.fulfilled, (state, action) => {
                 state.status = "succeeded";
-                state.current = action.payload || null;
+                state.current = action.payload;
             })
             .addCase(saveAssessment.fulfilled, (state, action) => {
                 state.current = action.payload;
-            })
-            .addCase(deleteAssessment.fulfilled, (state, action) => {
-                if (state.current?.jobId === action.payload) {
-                    state.current = null;
-                }
             });
     },
 });
+
 
 export default assessmentsSlice.reducer;
