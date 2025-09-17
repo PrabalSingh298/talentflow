@@ -3,6 +3,7 @@ import React from 'react';
 import { Droppable } from 'react-beautiful-dnd';
 import CandidateCard from '../../components/CandidateCard';
 import styles from './CandidateKanban.module.css';
+import NavBar from '../../components/NavBar'
 
 const CandidateKanban = ({ candidates }) => { // Accept candidates as a prop
     const stages = ["applied", "screen", "tech", "offer", "hired", "rejected"];

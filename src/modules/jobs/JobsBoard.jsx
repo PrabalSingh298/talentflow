@@ -7,6 +7,7 @@ import JobListItem from '../../components/JobListItem';
 import JobFormModal from '../../components/JobFormModal';
 import JobsFilter from '../../components/JobsFilter';
 import PaginationControls from '../../components/PaginationControls';
+import NavBar from '../../components/NavBar'
 
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
@@ -96,6 +97,7 @@ function JobsBoard() {
 
     return (
         <div>
+            <NavBar />
             <h1>Jobs Board</h1>
             <button onClick={handleOpenCreateModal}>Create New Job</button>
             <JobsFilter />

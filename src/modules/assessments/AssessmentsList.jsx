@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { Link } from 'react-router-dom';
 import { loadAssessments } from '../../store/assessmentsSlice';
 import styles from './AssessmentsList.module.css';
+import NavBar from '../../components/NavBar'
 
 const AssessmentsList = () => {
     const dispatch = useDispatch();
@@ -35,6 +36,7 @@ const AssessmentsList = () => {
 
     return (
         <div className={styles.container}>
+            <NavBar />
             <div className={styles.header}>
                 <h1>Assessments</h1>
             </div>

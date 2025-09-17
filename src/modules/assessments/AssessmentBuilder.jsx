@@ -14,6 +14,7 @@ import RequiredCheckbox from '../../components/RequiredCheckbox';
 import ConditionalLogic from '../../components/ConditionalLogic';
 import styles from './AssessmentBuilder.module.css';
 import { nanoid } from '@reduxjs/toolkit';
+import NavBar from '../../components/NavBar'
 
 const AssessmentBuilder = () => {
     const location = useLocation();
@@ -154,6 +155,7 @@ const AssessmentBuilder = () => {
 
     return (
         <div className={styles.container}>
+            <NavBar />
             <div className={styles.builderPane}>
                 <h1>Assessment Builder</h1>
                 <input

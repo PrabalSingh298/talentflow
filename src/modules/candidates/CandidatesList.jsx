@@ -7,6 +7,7 @@ import CandidateKanban from './CandidateKanban';
 import CandidateFilter from '../../components/CandidateFilter';
 import CandidateFormModal from '../../components/CandidateFormModal'; // Import the new modal
 import { DragDropContext } from 'react-beautiful-dnd';
+import NavBar from '../../components/NavBar'
 
 function CandidatesList() {
     const dispatch = useDispatch();
@@ -37,6 +38,7 @@ function CandidatesList() {
 
     return (
         <div>
+            <NavBar />
             <h1>Candidates Board</h1>
             <button onClick={() => setIsModalOpen(true)}>Create Candidate</button>
             <CandidateFilter />

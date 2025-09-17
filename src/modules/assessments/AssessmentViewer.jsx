@@ -4,6 +4,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { loadAssessment, clearAssessment } from '../../store/assessmentsSlice';
 import styles from './AssessmentViewer.module.css';
+import NavBar from '../../components/NavBar'
 
 const AssessmentViewer = () => {
     const { jobId } = useParams();
@@ -35,6 +36,7 @@ const AssessmentViewer = () => {
 
     return (
         <div className={styles.container}>
+            <NavBar />
             <div className={styles.header}>
                 <h1>Assessment for Job ID: {jobId}</h1>
                 <Link to="/assessments/list">Go Back</Link>

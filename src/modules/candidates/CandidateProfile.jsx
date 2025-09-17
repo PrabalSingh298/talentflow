@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { loadCandidateById, loadTimelineByCandidateId } from '../../store/candidatesSlice'; // Import the new thunk
 import NotesSection from '../../components/NotesSection';
 import styles from './CandidateProfile.module.css';
+import NavBar from '../../components/NavBar'
 
 const CandidateProfile = () => {
     const { id } = useParams();
@@ -36,6 +37,7 @@ const CandidateProfile = () => {
         // If the correct candidate is found, render the details
         return (
             <div className={styles.profileContainer}>
+                <NavBar />
                 <Link to="/candidates" className={styles.backLink}>Go Back</Link>
                 <div className={styles.header}>
                     <h1 className={styles.name}>{candidate.name}</h1>
