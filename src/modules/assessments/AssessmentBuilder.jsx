@@ -1,8 +1,8 @@
 // src/modules/assessments/AssessmentBuilder.jsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
-import { loadAssessment, saveNewAssessment, clearAssessment } from '../../store/assessmentsSlice';
+import { loadAssessment, saveNewAssessment, saveAssessment, clearAssessment } from '../../store/assessmentsSlice';
 import AssessmentPreview from './AssessmentPreview';
 import ShortTextQuestion from '../../components/ShortTextQuestion';
 import LongTextQuestion from '../../components/LongTextQuestion';
@@ -21,17 +21,22 @@ const AssessmentBuilder = () => {
 
     const dispatch = useDispatch();
 
-    const assessment = useSelector(state => state.assessments.current);
+    const assessmentFromStore = useSelector(state => state.assessments.current);
     const status = useSelector(state => state.assessments.status);
 
     const [localAssessment, setLocalAssessment] = useState(null);
-    const [linkedJobId, setLinkedJobId] = useState(jobIdFromUrl || null);
 
+    // This effect handles loading an existing assessment or preparing a new one
     useEffect(() => {
         if (jobIdFromUrl) {
             dispatch(loadAssessment(jobIdFromUrl));
         } else {
-            dispatch(clearAssessment());
+            setLocalAssessment({
+                jobId: nanoid(), // Generate a unique jobId for the new assessment
+                title: 'Untitled Assessment',
+                sections: [],
+                // Do NOT generate an ID here. Let the database handle it on add.
+            });
         }
 
         return () => {
@@ -39,13 +44,12 @@ const AssessmentBuilder = () => {
         };
     }, [dispatch, jobIdFromUrl]);
 
+    // This effect syncs local state with Redux store for editing existing assessments
     useEffect(() => {
-        if (assessment && assessment.jobId === jobIdFromUrl) {
-            setLocalAssessment(assessment);
-        } else if (!jobIdFromUrl) {
-            setLocalAssessment({ jobId: `job-${nanoid()}`, sections: [] });
+        if (status === 'succeeded' && assessmentFromStore && assessmentFromStore.jobId === jobIdFromUrl) {
+            setLocalAssessment(assessmentFromStore);
         }
-    }, [assessment, jobIdFromUrl]);
+    }, [assessmentFromStore, jobIdFromUrl, status]);
 
     const handleAddSection = () => {
         if (!localAssessment) return;
@@ -53,193 +57,155 @@ const AssessmentBuilder = () => {
             ...prev,
             sections: [
                 ...prev.sections,
-                { id: `section-${Date.now()}`, title: '', questions: [] }
+                { id: nanoid(), title: 'New Section', questions: [] }
             ]
         }));
     };
 
     const handleAddQuestion = (sectionIndex, type) => {
         if (!localAssessment) return;
-        const newSections = [...localAssessment.sections];
-        let newQuestion = { id: `question-${Date.now()}`, type, text: '', required: false };
-        if (type === 'single-choice' || type === 'multi-choice') {
-            newQuestion.options = [''];
-        }
-        if (type === 'numeric') {
-            newQuestion.validation = { min: 0, max: 100 };
-        }
-        newSections[sectionIndex].questions.push(newQuestion);
-        setLocalAssessment({ ...localAssessment, sections: newSections });
+        setLocalAssessment(prev => {
+            const newSections = [...prev.sections];
+            const newQuestions = [...newSections[sectionIndex].questions, {
+                id: nanoid(),
+                type,
+                text: '',
+                required: false,
+                ...(type === 'single-choice' || type === 'multi-choice' ? { options: [''] } : {}),
+                ...(type === 'numeric' ? { validation: { min: 0, max: 100 } } : {})
+            }];
+            newSections[sectionIndex] = { ...newSections[sectionIndex], questions: newQuestions };
+            return { ...prev, sections: newSections };
+        });
     };
 
-    const handleUpdateQuestion = (sectionIndex, questionIndex, updatedQuestion) => {
+    const handleUpdateQuestion = useCallback((sectionIndex, questionIndex, updatedQuestion) => {
         if (!localAssessment) return;
-        const newSections = [...localAssessment.sections];
-        newSections[sectionIndex].questions[questionIndex] = updatedQuestion;
-        setLocalAssessment({ ...localAssessment, sections: newSections });
-    };
+        setLocalAssessment(prev => {
+            const newSections = [...prev.sections];
+            const newQuestions = [...newSections[sectionIndex].questions];
+            newQuestions[questionIndex] = updatedQuestion;
+            newSections[sectionIndex] = { ...newSections[sectionIndex], questions: newQuestions };
+            return { ...prev, sections: newSections };
+        });
+    }, [localAssessment]);
 
     const handleDeleteQuestion = (sectionIndex, questionIndex) => {
         if (!localAssessment) return;
-        const newSections = [...localAssessment.sections];
-        newSections[sectionIndex].questions.splice(questionIndex, 1);
-        setLocalAssessment({ ...localAssessment, sections: newSections });
+        setLocalAssessment(prev => {
+            const newSections = [...prev.sections];
+            const newQuestions = [...newSections[sectionIndex].questions];
+            newQuestions.splice(questionIndex, 1);
+            newSections[sectionIndex] = { ...newSections[sectionIndex], questions: newQuestions };
+            return { ...prev, sections: newSections };
+        });
     };
 
     const handleToggleRequired = (sectionIndex, questionIndex) => {
         if (!localAssessment) return;
-        const newSections = [...localAssessment.sections];
-        const question = newSections[sectionIndex].questions[questionIndex];
-        newSections[sectionIndex].questions[questionIndex] = {
-            ...question,
-            required: !question.required,
-        };
-        setLocalAssessment({ ...localAssessment, sections: newSections });
+        setLocalAssessment(prev => {
+            const newSections = [...prev.sections];
+            const newQuestions = [...newSections[sectionIndex].questions];
+            newQuestions[questionIndex] = {
+                ...newQuestions[questionIndex],
+                required: !newQuestions[questionIndex].required,
+            };
+            newSections[sectionIndex] = { ...newSections[sectionIndex], questions: newQuestions };
+            return { ...prev, sections: newSections };
+        });
     };
 
-    const handleSave = () => {
+    const handleSave = async () => {
         if (!localAssessment || !localAssessment.jobId) {
             alert('A job ID is required to save an assessment.');
             return;
         }
-        dispatch(saveNewAssessment(localAssessment));
-        alert('Assessment saved!');
+
+        try {
+            if (assessmentFromStore && assessmentFromStore.id) {
+                // Corrected: Ensure the ID is always present for updates
+                const assessmentToSave = { ...localAssessment, id: assessmentFromStore.id };
+                await dispatch(saveAssessment(assessmentToSave)).unwrap();
+                alert('Assessment updated!');
+            } else {
+                await dispatch(saveNewAssessment(localAssessment)).unwrap();
+                alert('Assessment saved!');
+            }
+        } catch (error) {
+            console.error("Failed to save assessment:", error);
+            alert("Failed to save assessment. Check console for details.");
+        }
     };
 
-    const allQuestions = localAssessment?.sections?.flatMap(s => s.questions) || [];
-
-    if (status === 'loading') {
+    if (!localAssessment || !localAssessment.sections) {
         return <div>Loading assessment...</div>;
     }
 
-    if (!localAssessment) {
-        return null;
-    }
+    const allQuestions = localAssessment.sections.flatMap(s => s.questions);
+
+    const questionComponents = {
+        'short-text': ShortTextQuestion,
+        'long-text': LongTextQuestion,
+        'single-choice': SingleChoiceQuestion,
+        'multi-choice': MultiChoiceQuestion,
+        'numeric': NumericQuestion,
+        'file-upload': FileUploadQuestion,
+    };
 
     return (
         <div className={styles.container}>
             <div className={styles.builderPane}>
                 <h1>Assessment Builder</h1>
+                <input
+                    type="text"
+                    placeholder="Assessment Title"
+                    value={localAssessment.title || ''}
+                    onChange={(e) => setLocalAssessment({ ...localAssessment, title: e.target.value })}
+                    className={styles.titleInput}
+                />
                 <button onClick={handleAddSection}>Add Section</button>
                 <div className={styles.sectionsList}>
                     {localAssessment.sections.map((section, sectionIndex) => (
                         <div key={section.id} className={styles.section}>
-                            <input type="text" placeholder="Section Title" value={section.title} onChange={e => {
-                                const newSections = [...localAssessment.sections];
-                                newSections[sectionIndex].title = e.target.value;
-                                setLocalAssessment({ ...localAssessment, sections: newSections });
-                            }} />
+                            <input
+                                type="text"
+                                placeholder="Section Title"
+                                value={section.title}
+                                onChange={e => {
+                                    const newSections = [...localAssessment.sections];
+                                    const updatedSection = { ...newSections[sectionIndex], title: e.target.value };
+                                    newSections[sectionIndex] = updatedSection;
+                                    setLocalAssessment({ ...localAssessment, sections: newSections });
+                                }}
+                            />
                             <div>
-                                <button onClick={() => handleAddQuestion(sectionIndex, 'short-text')}>Add Short Text Question</button>
-                                <button onClick={() => handleAddQuestion(sectionIndex, 'long-text')}>Add Long Text Question</button>
-                                <button onClick={() => handleAddQuestion(sectionIndex, 'single-choice')}>Add Single-Choice Question</button>
-                                <button onClick={() => handleAddQuestion(sectionIndex, 'multi-choice')}>Add Multi-Choice Question</button>
-                                <button onClick={() => handleAddQuestion(sectionIndex, 'numeric')}>Add Numeric Question</button>
-                                <button onClick={() => handleAddQuestion(sectionIndex, 'file-upload')}>Add File Upload Question</button>
+                                {Object.keys(questionComponents).map(type => (
+                                    <button key={type} onClick={() => handleAddQuestion(sectionIndex, type)}>
+                                        Add {type.replace('-', ' ')}
+                                    </button>
+                                ))}
                             </div>
                             {section.questions.map((question, questionIndex) => {
-                                const commonProps = {
-                                    question: question,
-                                    onUpdate: updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion),
-                                    onDelete: () => handleDeleteQuestion(sectionIndex, questionIndex),
-                                };
-                                if (question.type === 'short-text') {
-                                    return (
-                                        <div key={question.id}>
-                                            <ShortTextQuestion {...commonProps} />
-                                            <RequiredCheckbox
-                                                required={question.required}
-                                                onToggle={() => handleToggleRequired(sectionIndex, questionIndex)}
-                                            />
-                                            <ConditionalLogic
-                                                question={question}
-                                                onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
-                                                allQuestions={allQuestions}
-                                            />
-                                        </div>
-                                    );
-                                }
-                                if (question.type === 'long-text') {
-                                    return (
-                                        <div key={question.id}>
-                                            <LongTextQuestion {...commonProps} />
-                                            <RequiredCheckbox
-                                                required={question.required}
-                                                onToggle={() => handleToggleRequired(sectionIndex, questionIndex)}
-                                            />
-                                            <ConditionalLogic
-                                                question={question}
-                                                onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
-                                                allQuestions={allQuestions}
-                                            />
-                                        </div>
-                                    );
-                                }
-                                if (question.type === 'single-choice') {
-                                    return (
-                                        <div key={question.id}>
-                                            <SingleChoiceQuestion {...commonProps} />
-                                            <RequiredCheckbox
-                                                required={question.required}
-                                                onToggle={() => handleToggleRequired(sectionIndex, questionIndex)}
-                                            />
-                                            <ConditionalLogic
-                                                question={question}
-                                                onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
-                                                allQuestions={allQuestions}
-                                            />
-                                        </div>
-                                    );
-                                }
-                                if (question.type === 'multi-choice') {
-                                    return (
-                                        <div key={question.id}>
-                                            <MultiChoiceQuestion {...commonProps} />
-                                            <RequiredCheckbox
-                                                required={question.required}
-                                                onToggle={() => handleToggleRequired(sectionIndex, questionIndex)}
-                                            />
-                                            <ConditionalLogic
-                                                question={question}
-                                                onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
-                                                allQuestions={allQuestions}
-                                            />
-                                        </div>
-                                    );
-                                }
-                                if (question.type === 'numeric') {
-                                    return (
-                                        <div key={question.id}>
-                                            <NumericQuestion {...commonProps} />
-                                            <RequiredCheckbox
-                                                required={question.required}
-                                                onToggle={() => handleToggleRequired(sectionIndex, questionIndex)}
-                                            />
-                                            <ConditionalLogic
-                                                question={question}
-                                                onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
-                                                allQuestions={allQuestions}
-                                            />
-                                        </div>
-                                    );
-                                }
-                                if (question.type === 'file-upload') {
-                                    return (
-                                        <div key={question.id}>
-                                            <FileUploadQuestion {...commonProps} />
-                                            <RequiredCheckbox
-                                                required={question.required}
-                                                onToggle={() => handleToggleRequired(sectionIndex, questionIndex)}
-                                            />
-                                            <ConditionalLogic
-                                                question={question}
-                                                onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
-                                                allQuestions={allQuestions}
-                                            />
-                                        </div>
-                                    );
-                                }
-                                return null;
+                                const QuestionComponent = questionComponents[question.type];
+                                if (!QuestionComponent) return null;
+                                return (
+                                    <div key={question.id}>
+                                        <QuestionComponent
+                                            question={question}
+                                            onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
+                                            onDelete={() => handleDeleteQuestion(sectionIndex, questionIndex)}
+                                        />
+                                        <RequiredCheckbox
+                                            required={question.required}
+                                            onToggle={() => handleToggleRequired(sectionIndex, questionIndex)}
+                                        />
+                                        <ConditionalLogic
+                                            question={question}
+                                            onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
+                                            allQuestions={allQuestions}
+                                        />
+                                    </div>
+                                );
                             })}
                         </div>
                     ))}

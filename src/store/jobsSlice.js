@@ -3,27 +3,32 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { db } from "../db";
 
 // MODIFIED: This thunk now handles filtering, pagination, and sorting directly from IndexedDB.
+// Corrected: This thunk now handles filtering, pagination, and sorting correctly.
 export const loadJobs = createAsyncThunk("jobs/load", async (filters = {}) => {
     let collection = db.jobs;
 
-    if (filters.search) {
-        collection = collection.filter(job => job.title.toLowerCase().includes(filters.search.toLowerCase()));
-    }
+    // First, apply filters that use indexed fields for better performance
     if (filters.status) {
         collection = collection.where('status').equals(filters.status);
     }
+
+    // Then, apply the full-text search filter on the result
+    if (filters.search) {
+        collection = collection.filter(job => job.title.toLowerCase().includes(filters.search.toLowerCase()));
+    }
+
+    // Apply the tag filter
     if (filters.tags) {
         collection = collection.filter(job =>
             Array.isArray(job.tags) && job.tags.some(tag => filters.tags.includes(tag))
         );
     }
 
-    // You can implement sorting and pagination with Dexie methods as well.
+    // You can implement sorting and pagination on the combined result
     if (filters.sort) {
         if (filters.sort === 'title') {
             collection = collection.sortBy('title');
         }
-        // Add more sorting options as needed
     }
 
     const totalCount = await collection.count();
