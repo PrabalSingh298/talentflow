@@ -154,72 +154,74 @@ const AssessmentBuilder = () => {
     };
 
     return (
-        <div className={styles.container}>
+        <>
             <NavBar />
-            <div className={styles.builderPane}>
-                <h1>Assessment Builder</h1>
-                <input
-                    type="text"
-                    placeholder="Assessment Title"
-                    value={localAssessment.title || ''}
-                    onChange={(e) => setLocalAssessment({ ...localAssessment, title: e.target.value })}
-                    className={styles.titleInput}
-                />
-                <button onClick={handleAddSection}>Add Section</button>
-                <div className={styles.sectionsList}>
-                    {localAssessment.sections.map((section, sectionIndex) => (
-                        <div key={section.id} className={styles.section}>
-                            <input
-                                type="text"
-                                placeholder="Section Title"
-                                value={section.title}
-                                onChange={e => {
-                                    const newSections = [...localAssessment.sections];
-                                    const updatedSection = { ...newSections[sectionIndex], title: e.target.value };
-                                    newSections[sectionIndex] = updatedSection;
-                                    setLocalAssessment({ ...localAssessment, sections: newSections });
-                                }}
-                            />
-                            <div>
-                                {Object.keys(questionComponents).map(type => (
-                                    <button key={type} onClick={() => handleAddQuestion(sectionIndex, type)}>
-                                        Add {type.replace('-', ' ')}
-                                    </button>
-                                ))}
+            <div className={styles.container}>
+
+                <div className={styles.builderPane}>
+                    <h1>Assessment Builder</h1>
+                    <input
+                        type="text"
+                        placeholder="Assessment Title"
+                        value={localAssessment.title || ''}
+                        onChange={(e) => setLocalAssessment({ ...localAssessment, title: e.target.value })}
+                        className={styles.titleInput}
+                    />
+                    <button onClick={handleAddSection}>Add Section</button>
+                    <div className={styles.sectionsList}>
+                        {localAssessment.sections.map((section, sectionIndex) => (
+                            <div key={section.id} className={styles.section}>
+                                <input
+                                    type="text"
+                                    placeholder="Section Title"
+                                    value={section.title}
+                                    onChange={e => {
+                                        const newSections = [...localAssessment.sections];
+                                        const updatedSection = { ...newSections[sectionIndex], title: e.target.value };
+                                        newSections[sectionIndex] = updatedSection;
+                                        setLocalAssessment({ ...localAssessment, sections: newSections });
+                                    }}
+                                />
+                                <div>
+                                    {Object.keys(questionComponents).map(type => (
+                                        <button key={type} onClick={() => handleAddQuestion(sectionIndex, type)}>
+                                            Add {type.replace('-', ' ')}
+                                        </button>
+                                    ))}
+                                </div>
+                                {section.questions.map((question, questionIndex) => {
+                                    const QuestionComponent = questionComponents[question.type];
+                                    if (!QuestionComponent) return null;
+                                    return (
+                                        <div key={question.id}>
+                                            <QuestionComponent
+                                                question={question}
+                                                onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
+                                                onDelete={() => handleDeleteQuestion(sectionIndex, questionIndex)}
+                                            />
+                                            <RequiredCheckbox
+                                                required={question.required}
+                                                onToggle={() => handleToggleRequired(sectionIndex, questionIndex)}
+                                            />
+                                            <ConditionalLogic
+                                                question={question}
+                                                onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
+                                                allQuestions={allQuestions}
+                                            />
+                                        </div>
+                                    );
+                                })}
                             </div>
-                            {section.questions.map((question, questionIndex) => {
-                                const QuestionComponent = questionComponents[question.type];
-                                if (!QuestionComponent) return null;
-                                return (
-                                    <div key={question.id}>
-                                        <QuestionComponent
-                                            question={question}
-                                            onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
-                                            onDelete={() => handleDeleteQuestion(sectionIndex, questionIndex)}
-                                        />
-                                        <RequiredCheckbox
-                                            required={question.required}
-                                            onToggle={() => handleToggleRequired(sectionIndex, questionIndex)}
-                                        />
-                                        <ConditionalLogic
-                                            question={question}
-                                            onUpdate={updatedQuestion => handleUpdateQuestion(sectionIndex, questionIndex, updatedQuestion)}
-                                            allQuestions={allQuestions}
-                                        />
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    ))}
+                        ))}
+                    </div>
+                    <button onClick={handleSave}>Save Assessment</button>
                 </div>
-                <button onClick={handleSave}>Save Assessment</button>
+                <div className={styles.previewPane}>
+                    <h2>Live Preview</h2>
+                    <AssessmentPreview assessmentData={localAssessment} />
+                </div>
             </div>
-            <div className={styles.previewPane}>
-                <h2>Live Preview</h2>
-                <AssessmentPreview assessmentData={localAssessment} />
-            </div>
-        </div>
-    );
+        </>);
 };
 
 export default AssessmentBuilder;
