@@ -18,11 +18,6 @@ const NavBar = () => {
                 <li><Link to="/candidates">Candidates</Link></li>
                 <li><Link to="/assessments">Assessments</Link></li>
             </ul>
-
-            <div className={styles.cta}>
-                <Link to="/login" className={styles.loginBtn}>Login</Link>
-                <Link to="/signup" className={styles.signupBtn}>Sign Up</Link>
-            </div>
         </nav>
     );
 };
