@@ -1,8 +1,8 @@
 // src/modules/jobs/JobsBoard.jsx
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useLocation } from 'react-router-dom';
-import { loadJobs, addJob, reorderJob, optimisticReorder } from '../../store/jobsSlice';
+import { useLocation, useNavigate } from 'react-router-dom'; // Import useNavigate
+import { loadJobs, reorderJob, optimisticReorder } from '../../store/jobsSlice';
 import JobListItem from '../../components/JobListItem';
 import JobFormModal from '../../components/JobFormModal';
 import JobsFilter from '../../components/JobsFilter';
@@ -13,23 +13,38 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 function JobsBoard() {
     const dispatch = useDispatch();
     const location = useLocation();
-    const { list: jobs, status, totalCount, pageSize } = useSelector((state) => state.jobs);
+    const navigate = useNavigate(); // Hook for navigation
+
+    const { list: jobs, status, totalCount, currentPage, pageSize } = useSelector((state) => state.jobs);
 
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingJob, setEditingJob] = useState(null);
 
-    useEffect(() => {
+    // Centralized function to get all filters from the URL
+    const getFiltersFromURL = () => {
         const searchParams = new URLSearchParams(location.search);
-        const filters = {
-            search: searchParams.get('search'),
-            status: searchParams.get('status'),
-            page: searchParams.get('page'),
-            pageSize: searchParams.get('pageSize'),
-            sort: searchParams.get('sort')
+        return {
+            search: searchParams.get('search') || '',
+            status: searchParams.get('status') || '',
+            page: parseInt(searchParams.get('page')) || 1,
+            pageSize: parseInt(searchParams.get('pageSize')) || 10, // Default to 10
+            sort: searchParams.get('sort') || ''
         };
+    };
 
-        dispatch(loadJobs(filters));
+    // Correctly load jobs whenever the URL's search parameters change
+    useEffect(() => {
+        dispatch(loadJobs(getFiltersFromURL()));
     }, [dispatch, location.search]);
+
+    const handlePageChange = (newPage) => {
+        const currentParams = getFiltersFromURL();
+        const newParams = new URLSearchParams({
+            ...currentParams,
+            page: newPage,
+        });
+        navigate(`?${newParams.toString()}`);
+    };
 
     const handleOpenCreateModal = () => {
         setEditingJob(null);
@@ -44,32 +59,17 @@ function JobsBoard() {
     const handleCloseModal = () => {
         setIsModalOpen(false);
         setEditingJob(null);
-        const searchParams = new URLSearchParams(location.search);
-        const filters = {
-            search: searchParams.get('search'),
-            status: searchParams.get('status'),
-        };
-        dispatch(loadJobs(filters));
+        // Reload jobs with all current filters to see the newly added/edited job
+        dispatch(loadJobs(getFiltersFromURL()));
     };
 
-    // Corrected onDragEnd handler
     const onDragEnd = (result) => {
-        if (!result.destination) {
-            return;
-        }
-
-        const draggedJob = jobs.find(job => job.id === result.draggableId);
-        if (!draggedJob) {
+        if (!result.destination || result.source.index === result.destination.index) {
             return;
         }
 
         const fromIndex = result.source.index;
         const toIndex = result.destination.index;
-
-        // Check if the order has actually changed
-        if (fromIndex === toIndex) {
-            return;
-        }
 
         // Dispatch the optimistic update first
         dispatch(optimisticReorder({
@@ -77,21 +77,22 @@ function JobsBoard() {
             toOrder: jobs[toIndex].order,
         }));
 
-        // Then, dispatch the API call to persist the change
-        dispatch(reorderJob({
-            id: draggedJob.id,
-            fromOrder: jobs[fromIndex].order,
-            toOrder: jobs[toIndex].order,
-        }));
+        const draggedJob = jobs.find(job => job.id === result.draggableId);
+        if (draggedJob) {
+            // Then, dispatch the persistent update to IndexedDB
+            dispatch(reorderJob({
+                id: draggedJob.id,
+                fromOrder: jobs[fromIndex].order,
+                toOrder: jobs[toIndex].order,
+            }));
+        }
     };
 
     if (status === 'loading') {
         return <div>Loading jobs...</div>;
     }
 
-    if (status === 'succeeded' && jobs.length === 0) {
-        return <div>No jobs found.</div>;
-    }
+    const sortedJobs = [...jobs].sort((a, b) => a.order - b.order);
 
     return (
         <div>
@@ -106,16 +107,13 @@ function JobsBoard() {
                             {...provided.droppableProps}
                             ref={provided.innerRef}
                         >
-                            {jobs.map((job, index) => (
+                            {sortedJobs.map((job, index) => (
                                 <Draggable key={job.id} draggableId={job.id} index={index}>
                                     {(provided) => (
                                         <li
                                             ref={provided.innerRef}
                                             {...provided.draggableProps}
                                             {...provided.dragHandleProps}
-                                            style={{
-                                                ...provided.draggableProps.style,
-                                            }}
                                         >
                                             <JobListItem job={job} />
                                             <button onClick={() => handleOpenEditModal(job)}>Edit</button>
@@ -129,7 +127,13 @@ function JobsBoard() {
                 </Droppable>
             </DragDropContext>
 
-            <PaginationControls totalCount={totalCount} pageSize={pageSize} />
+            {/* Pass the page change handler to PaginationControls */}
+            <PaginationControls
+                totalCount={totalCount}
+                pageSize={pageSize}
+                currentPage={currentPage}
+                onPageChange={handlePageChange}
+            />
 
             <JobFormModal
                 isOpen={isModalOpen}

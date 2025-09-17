@@ -1,60 +1,65 @@
 // src/store/candidatesSlice.js
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
+import { db } from "../db";
 
+// MODIFIED: This thunk now loads candidates directly from IndexedDB.
+// Corrected loadCandidates thunk
 export const loadCandidates = createAsyncThunk("candidates/load", async (filters = {}) => {
-    const params = new URLSearchParams();
-    if (filters.search) params.append('search', filters.search);
-    if (filters.stage) params.append('stage', filters.stage);
+    let collection = db.candidates;
 
-    const response = await fetch(`/api/candidates?${params.toString()}`);
-    if (!response.ok) {
-        throw new Error('Failed to load candidates');
+    // Start with the 'where' clause for stages as it's typically faster on indexed fields
+    if (filters.stage) {
+        collection = collection.where('stage').equals(filters.stage);
     }
-    return response.json();
+
+    // Then apply the 'filter' clause for searching on the result of the 'where'
+    if (filters.search) {
+        collection = collection.filter(candidate =>
+            candidate.name.toLowerCase().includes(filters.search.toLowerCase()) ||
+            candidate.email.toLowerCase().includes(filters.search.toLowerCase())
+        );
+    }
+
+    // Now, run toArray() on the final, combined collection
+    return await collection.toArray();
 });
 
+// MODIFIED: This thunk now updates a candidate's stage directly in IndexedDB.
 export const updateCandidateStage = createAsyncThunk("candidates/updateStage", async ({ id, stage }, { rejectWithValue }) => {
-    const response = await fetch(`/api/candidates/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ stage }),
-    });
-    if (!response.ok) {
-        return rejectWithValue(await response.json());
+    try {
+        await db.candidates.update(id, { stage });
+        const updatedCandidate = await db.candidates.get(id);
+        return updatedCandidate;
+    } catch (error) {
+        return rejectWithValue(error.message);
     }
-    return response.json();
 });
 
+// MODIFIED: This thunk now loads a single candidate directly from IndexedDB.
 export const loadCandidateById = createAsyncThunk("candidates/loadById", async (id) => {
-    const response = await fetch(`/api/candidates/${id}`);
-    if (!response.ok) {
-        throw new Error('Failed to load candidate');
+    const candidate = await db.candidates.get(id);
+    if (!candidate) {
+        throw new Error('Candidate not found');
     }
-    return response.json();
+    return candidate;
 });
 
+// MODIFIED: This thunk now loads the timeline directly from the candidate object in IndexedDB.
 export const loadTimelineByCandidateId = createAsyncThunk(
     "candidates/loadTimeline",
     async (candidateId) => {
-        const response = await fetch(`/api/candidates/${candidateId}/timeline`);
-        if (!response.ok) {
-            throw new Error('Failed to load timeline');
+        const candidate = await db.candidates.get(candidateId);
+        if (!candidate || !candidate.timeline) {
+            throw new Error('Timeline not found for candidate');
         }
-        return response.json();
+        return candidate.timeline;
     }
 );
 
-// New: Async thunk to create a new candidate
+// MODIFIED: This thunk now creates a new candidate directly in IndexedDB.
 export const createCandidate = createAsyncThunk("candidates/create", async (candidate) => {
-    const response = await fetch('/api/candidates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(candidate),
-    });
-    if (!response.ok) {
-        throw new Error('Failed to create candidate');
-    }
-    return response.json();
+    const newCandidateId = await db.candidates.add(candidate);
+    return { ...candidate, id: newCandidateId };
 });
 
 const candidatesSlice = createSlice({
@@ -62,7 +67,7 @@ const candidatesSlice = createSlice({
     initialState: {
         list: [],
         currentCandidate: null,
-        currentTimeline: [], // New state property for the timeline
+        currentTimeline: [],
         status: "idle",
     },
     reducers: {},
@@ -107,12 +112,11 @@ const candidatesSlice = createSlice({
                 state.status = 'failed';
                 state.currentTimeline = [];
             })
-            // New: Handle the creation of a new candidate
             .addCase(createCandidate.fulfilled, (state, action) => {
-                state.list.push(action.payload);
+                // MODIFIED: Use unshift instead of push to add the new candidate to the beginning
+                state.list.unshift(action.payload);
             });
     },
 });
-
 
 export default candidatesSlice.reducer;

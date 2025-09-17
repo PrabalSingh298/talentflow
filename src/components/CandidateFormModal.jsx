@@ -14,20 +14,38 @@ const CandidateFormModal = ({ isOpen, onClose }) => {
         stage: 'applied', // New candidates start in the 'applied' stage
     });
 
+    // Simple function to generate a unique ID
+    const generateUniqueId = () => {
+        return 'candidate-' + Math.random().toString(36).substr(2, 9);
+    };
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setCandidateData(prevData => ({ ...prevData, [name]: value }));
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        const newCandidate = {
-            ...candidateData,
-            timeline: [{ stage: candidateData.stage, timestamp: new Date().toISOString() }],
-            notes: [],
-        };
-        dispatch(createCandidate(newCandidate));
-        onClose();
+        try {
+            // Create a complete candidate object with a unique ID and a timeline field
+            const newCandidate = {
+                ...candidateData,
+                id: generateUniqueId(),
+                timeline: [{
+                    stage: candidateData.stage,
+                    timestamp: new Date().toISOString()
+                }],
+            };
+
+            // Dispatch the thunk and wait for it to complete
+            await dispatch(createCandidate(newCandidate)).unwrap();
+
+            // Close the modal on successful submission
+            onClose();
+        } catch (error) {
+            console.error('Failed to create candidate:', error);
+            alert('Failed to create candidate. Check the console for details.');
+        }
     };
 
     if (!isOpen) {

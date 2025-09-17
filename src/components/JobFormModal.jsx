@@ -4,10 +4,16 @@ import { useDispatch, useSelector } from 'react-redux';
 import { addJob, updateJob } from '../store/jobsSlice';
 import styles from './JobFormModal.module.css';
 
+// Simple function to generate a unique ID for new jobs
+const generateUniqueId = () => {
+    return 'job-' + Math.random().toString(36).substr(2, 9);
+};
+
 const JobFormModal = ({ isOpen, onClose, initialJobData }) => {
     const dispatch = useDispatch();
     const availableStatuses = useSelector(state => state.jobs.availableStatuses);
 
+    // State for the form data
     const [job, setJob] = useState({
         title: '',
         description: '',
@@ -16,12 +22,15 @@ const JobFormModal = ({ isOpen, onClose, initialJobData }) => {
         tags: [],
     });
 
+    // New state to manage the raw tags input string
+    const [tagsInput, setTagsInput] = useState('');
+
     useEffect(() => {
-        // Populate the form with initial data when editing an existing job
         if (initialJobData) {
             setJob(initialJobData);
+            // Initialize the raw tags input field with the joined tags array
+            setTagsInput(initialJobData.tags ? initialJobData.tags.join(', ') : '');
         } else {
-            // Clear the form when creating a new job
             setJob({
                 title: '',
                 description: '',
@@ -29,6 +38,8 @@ const JobFormModal = ({ isOpen, onClose, initialJobData }) => {
                 status: 'active',
                 tags: [],
             });
+            // Clear the tags input for a new job
+            setTagsInput('');
         }
     }, [initialJobData]);
 
@@ -38,20 +49,36 @@ const JobFormModal = ({ isOpen, onClose, initialJobData }) => {
     };
 
     const handleTagsChange = (e) => {
-        const tagsArray = e.target.value.split(',').map(tag => tag.trim());
-        setJob(prevJob => ({ ...prevJob, tags: tagsArray }));
+        // Update the raw tags input state only
+        setTagsInput(e.target.value);
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (initialJobData) {
-            // Dispatch the updateJob thunk
-            dispatch(updateJob({ ...job, tags: job.tags.filter(tag => tag !== '') }));
-        } else {
-            // Dispatch the addJob thunk
-            dispatch(addJob({ ...job, tags: job.tags.filter(tag => tag !== '') }));
+        try {
+            // Parse the tagsInput string into a clean array on submission
+            const tagsArray = tagsInput.split(',').map(tag => tag.trim()).filter(tag => tag !== '');
+
+            // Create the final job object to be dispatched
+            const jobToSave = { ...job, tags: tagsArray };
+
+            if (initialJobData) {
+                // For updates, explicitly pass the ID
+                const finalJobToUpdate = { ...jobToSave, id: initialJobData.id };
+                await dispatch(updateJob(finalJobToUpdate)).unwrap();
+                console.log('Update successful:', finalJobToUpdate);
+            } else {
+                // For new jobs, generate and add a new ID
+                const newJobWithId = { ...jobToSave, id: generateUniqueId() };
+                await dispatch(addJob(newJobWithId)).unwrap();
+                console.log('New job added successfully:', newJobWithId);
+            }
+
+            onClose();
+        } catch (error) {
+            console.error('Failed to save job:', error);
+            alert('Failed to save job. Check the console for details.');
         }
-        onClose();
     };
 
     if (!isOpen) {
@@ -85,7 +112,8 @@ const JobFormModal = ({ isOpen, onClose, initialJobData }) => {
                     </div>
                     <div className={styles.formGroup}>
                         <label htmlFor="tags">Tags (comma separated)</label>
-                        <input type="text" id="tags" name="tags" value={job.tags.join(', ')} onChange={handleTagsChange} />
+                        {/* Bind the input value to the new tagsInput state */}
+                        <input type="text" id="tags" name="tags" value={tagsInput} onChange={handleTagsChange} />
                     </div>
                     <div className={styles.actions}>
                         <button type="button" onClick={onClose} className={styles.cancelBtn}>Cancel</button>

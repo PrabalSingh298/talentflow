@@ -127,6 +127,7 @@ export const handlers = [
         const page = getNumericParam(url, 'page', 1);
         const pageSize = getNumericParam(url, 'pageSize', 10);
         let jobs = await db.jobs.toArray();
+        console.log("fetchJobs result", jobs);
         if (search) {
             jobs = jobs.filter(job => job.title.toLowerCase().includes(search.toLowerCase()));
         }
